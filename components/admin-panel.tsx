@@ -107,17 +107,15 @@ export default function AdminPanel() {
 
       console.log("[v0] Storage upload successful, saving to database")
 
-      // Save to database with admin flag
       const { error: dbError } = await supabase.from("uploaded_images").insert({
         user_id: user.id,
         filename: uploadFile.name,
-        file_path: filePath,
+        file_url: filePath, // Changed from file_path to file_url
         file_size: uploadFile.size,
-        plant_type: uploadPlantType,
-        user_label: uploadLabel,
-        description: uploadDescription,
-        is_admin_upload: true,
-        is_verified: true,
+        mime_type: uploadFile.type,
+        user_label: uploadPlantType, // Plant type goes in user_label
+        notes: uploadDescription, // Changed from description to notes
+        is_verified: true, // Admin uploads are pre-verified
       })
 
       if (dbError) {
