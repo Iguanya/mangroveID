@@ -11,24 +11,35 @@ export default async function DashboardPage() {
     redirect("/auth/login")
   }
 
-  console.log("[v0] User ID:", data.user.id)
-  console.log("[v0] User email:", data.user.email)
-
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", data.user.id)
-    .single()
+    .maybeSingle()
 
-  console.log("[v0] Profile data:", profile)
-  console.log("[v0] Profile error:", profileError)
-  console.log("[v0] User role:", profile?.role)
+  let userRole = profile?.role
+  if (!profile && !profileError) {
+    // Profile doesn't exist, create one
+    const { data: newProfile } = await supabase
+      .from("profiles")
+      .insert({
+        id: data.user.id,
+        email: data.user.email,
+        role: "user",
+      })
+      .select("role")
+      .single()
 
-  if (profile?.role === "admin") {
-    console.log("[v0] Rendering AdminPanel")
+    userRole = newProfile?.role || "user"
+  }
+
+  if (!userRole) {
+    userRole = "user"
+  }
+
+  if (userRole === "admin") {
     return <AdminPanel />
   }
 
-  console.log("[v0] Rendering DashboardContent")
   return <DashboardContent user={data.user} />
 }
