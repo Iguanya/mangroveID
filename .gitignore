@@ -9,7 +9,9 @@
 
 # production
 /build
-
+/backend/uploads/*
+/backend/venv/
+/public/uploads/*
 # debug
 npm-debug.log*
 yarn-debug.log*

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import PlantScanner from "@/components/PlantScanner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Camera, Upload, ImageIcon, Leaf, LogOut, RefreshCw } from "lucide-react"
@@ -42,6 +43,7 @@ export function DashboardContent({ user }: DashboardContentProps) {
   const [uploads, setUploads] = useState<UploadedImage[]>([])
   const [identifications, setIdentifications] = useState<Identification[]>([])
   const [loading, setLoading] = useState(true)
+  const [showScanner, setShowScanner] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const router = useRouter()
@@ -168,10 +170,8 @@ export function DashboardContent({ user }: DashboardContentProps) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card
-            className="border-emerald-200 hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => setShowUpload(true)}
-          >
+          {/* Scan Plant */}
+          <Card onClick={() => setShowScanner(true)} className="cursor-pointer hover:shadow-lg transition">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-emerald-100 rounded-lg">
@@ -179,15 +179,18 @@ export function DashboardContent({ user }: DashboardContentProps) {
                 </div>
                 <div>
                   <CardTitle className="text-lg text-emerald-800">Scan Plant</CardTitle>
-                  <CardDescription>Use your camera to identify plants in real-time</CardDescription>
+                  <CardDescription>
+                    Use your camera to identify plants in real-time
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
           </Card>
 
+          {/* Upload Image */}
           <Card
             className="border-emerald-200 hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => setShowUpload(true)}
+            onClick={() => setShowUpload(true)} // 👈 opens upload modal
           >
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
@@ -202,6 +205,7 @@ export function DashboardContent({ user }: DashboardContentProps) {
             </CardHeader>
           </Card>
         </div>
+
 
         {/* Dashboard Tabs */}
         <Tabs defaultValue="uploads" className="space-y-6">
@@ -244,9 +248,17 @@ export function DashboardContent({ user }: DashboardContentProps) {
                         key={upload.id}
                         className="border border-emerald-100 rounded-lg p-4 hover:shadow-md transition-shadow"
                       >
-                        <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                      <div className="aspect-square bg-gray-100 rounded-lg mb-3 overflow-hidden flex items-center justify-center">
+                        {upload.file_url ? (
+                          <img
+                            src={upload.file_url}
+                            alt={upload.user_label || upload.filename}
+                            className="object-cover w-full h-full"
+                          />
+                        ) : (
                           <ImageIcon className="h-8 w-8 text-gray-400" />
-                        </div>
+                        )}
+                      </div>
                         <div className="space-y-2">
                           <h4 className="font-medium text-sm text-emerald-800 truncate">
                             {upload.user_label || upload.filename}
@@ -342,6 +354,7 @@ export function DashboardContent({ user }: DashboardContentProps) {
         </Tabs>
 
         {/* Upload Modal */}
+        {showScanner && <PlantScanner onClose={() => setShowScanner(false)} />}
         {showUpload && <ImageUpload onClose={() => setShowUpload(false)} onSuccess={handleUploadSuccess} />}
       </main>
     </div>

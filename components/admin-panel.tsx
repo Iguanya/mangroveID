@@ -73,8 +73,17 @@ export default function AdminPanel() {
         `)
         .order("created_at", { ascending: false })
 
+      if (imagesError) throw imagesError
+
+      // Add public URLs
+      const imagesWithUrls =
+        imagesData?.map((img) => {
+          const { data } = supabase.storage.from("plant-images").getPublicUrl(img.file_url)
+          return { ...img, public_url: data.publicUrl }
+        }) || []
+
       setUsers(usersData || [])
-      setAllImages(imagesData || [])
+      setAllImages(imagesWithUrls)
     } catch (error) {
       console.error("Error fetching admin data:", error)
     } finally {
@@ -94,77 +103,62 @@ export default function AdminPanel() {
   }
 
   const handleAdminUpload = async () => {
-    if (!uploadFile || !uploadLabel || !uploadPlantType) {
-      alert("Please fill in all required fields")
-      return
-    }
+  if (!uploadFile || !uploadLabel || !uploadPlantType) {
+    alert("Please fill in all required fields")
+    return
+  }
 
-    setUploading(true)
-    try {
-      // Get current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  setUploading(true)
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error("Not authenticated")
 
-      console.log("[v0] Starting admin upload:", {
-        fileName: uploadFile.name,
-        fileSize: uploadFile.size,
-        plantType: uploadPlantType,
-        userId: user.id,
-      })
+    const formData = new FormData()
+    formData.append("file", uploadFile)
+    formData.append("userId", user.id)
+    formData.append("plantType", uploadPlantType)
+    formData.append("description", uploadDescription)
 
-      // Upload file to storage
-      const fileExt = uploadFile.name.split(".").pop()
-      const fileName = `admin_${Date.now()}.${fileExt}`
-      const filePath = `admin-uploads/${fileName}`
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    })
 
-      console.log("[v0] Uploading to storage path:", filePath)
+    if (!res.ok) throw new Error("Upload failed")
 
-      const { error: uploadError } = await supabase.storage.from("plant-images").upload(filePath, uploadFile)
+    const result = await res.json()
+    console.log("Upload success:", result)
 
-      if (uploadError) {
-        console.error("[v0] Storage upload error:", uploadError)
-        throw uploadError
-      }
+    // Save metadata in Supabase DB (optional, if still needed)
+    const { error: dbError } = await supabase.from("uploaded_images").insert({
+      user_id: user.id,
+      filename: uploadFile.name,
+      file_url: result.fileUrl, // now points to /uploads/
+      file_size: uploadFile.size,
+      mime_type: uploadFile.type,
+      user_label: uploadPlantType,
+      notes: uploadDescription,
+      is_verified: true,
+    })
 
-      console.log("[v0] Storage upload successful, saving to database")
+    if (dbError) throw dbError
 
-      const { error: dbError } = await supabase.from("uploaded_images").insert({
-        user_id: user.id,
-        filename: uploadFile.name,
-        file_url: filePath, // Changed from file_path to file_url
-        file_size: uploadFile.size,
-        mime_type: uploadFile.type,
-        user_label: uploadPlantType, // Plant type goes in user_label
-        notes: uploadDescription, // Changed from description to notes
-        is_verified: true, // Admin uploads are pre-verified
-      })
+    setUploadFile(null)
+    setUploadLabel("")
+    setUploadDescription("")
+    setUploadPlantType("")
 
-      if (dbError) {
-        console.error("[v0] Database insert error:", dbError)
-        throw dbError
-      }
-
-      console.log("[v0] Upload completed successfully")
-
-      // Reset form
-      setUploadFile(null)
-      setUploadLabel("")
-      setUploadDescription("")
-      setUploadPlantType("")
-
-      // Refresh data
-      await fetchAdminData()
-
-      alert("Image uploaded successfully!")
-    } catch (error) {
-      console.error("[v0] Upload error details:", error)
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
-      alert(`Upload failed: ${errorMessage}`)
-    } finally {
-      setUploading(false)
-    }
+    await fetchAdminData()
+    alert("Image uploaded successfully!")
+  } catch (error) {
+    console.error("Upload error details:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+    alert(`Upload failed: ${errorMessage}`)
+  } finally {
+    setUploading(false)
+  }
   }
 
   if (loading) {
@@ -276,17 +270,36 @@ export default function AdminPanel() {
                   <CardContent>
                     <div className="space-y-4">
                       {allImages.slice(0, 5).map((image: any) => (
-                        <div key={image.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
+                        <div
+                          key={image.id}
+                          className="flex items-center justify-between p-3 border rounded-lg gap-4"
+                        >
+                          {/* Thumbnail */}
+                          <div className="flex-shrink-0">
+                            <img
+                              src={image.url || image.file_url} // adjust field name depending on how you store it
+                              alt={image.filename}
+                              className="w-16 h-16 object-cover rounded-md border"
+                            />
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1">
                             <p className="font-medium">{image.filename}</p>
-                            <p className="text-sm text-gray-600">by {image.profiles?.display_name || "Unknown"}</p>
+                            <p className="text-sm text-gray-600">
+                              by {image.profiles?.display_name || "Unknown"}
+                            </p>
                             {image.is_admin_upload && (
                               <Badge variant="outline" className="text-xs mt-1">
                                 Admin Upload
                               </Badge>
                             )}
                           </div>
-                          <Badge variant="outline">{image.plant_type || "Unlabeled"}</Badge>
+
+                          {/* Plant type */}
+                          <Badge variant="outline">
+                            {image.plant_type || "Unlabeled"}
+                          </Badge>
                         </div>
                       ))}
                     </div>

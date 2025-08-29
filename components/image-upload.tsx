@@ -93,55 +93,51 @@ export function ImageUpload({ onClose, onSuccess }: ImageUploadProps) {
     setUseCamera(false)
   }
 
-  const handleUpload = async () => {
-    if (!file) return
+const handleUpload = async () => {
+  if (!file) return
 
-    setIsUploading(true)
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  setIsUploading(true)
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error("Not authenticated")
 
-      // Upload file to Supabase Storage
-      const fileExt = file.name.split(".").pop()
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`
+    // Prepare form data for API
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("userId", user.id)
+    formData.append("filename", file.name) // ✅ so we keep original filename
+    formData.append("user_label", userLabel)
+    formData.append("plant_part", plantPart)
+    formData.append("location_name", locationName)
+    formData.append("notes", notes)
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("plant-images")
-        .upload(fileName, file)
+    // Call our upload API
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    })
 
-      if (uploadError) throw uploadError
+    const data = await res.json()
 
-      // Get public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("plant-images").getPublicUrl(fileName)
-
-      // Save to database
-      const { error: dbError } = await supabase.from("uploaded_images").insert({
-        user_id: user.id,
-        filename: file.name,
-        file_url: publicUrl,
-        file_size: file.size,
-        mime_type: file.type,
-        user_label: userLabel || null,
-        plant_part: plantPart || null,
-        location_name: locationName || null,
-        notes: notes || null,
-      })
-
-      if (dbError) throw dbError
-
-      onSuccess()
-      onClose()
-    } catch (error) {
-      console.error("Upload error:", error)
-      alert("Failed to upload image. Please try again.")
-    } finally {
-      setIsUploading(false)
+    if (!res.ok) {
+      console.error("Upload API error:", data)
+      throw new Error(data.error || "Upload failed")
     }
+
+    console.log("Upload success:", data)
+
+    onSuccess() // refresh dashboard
+    onClose()   // close modal
+  } catch (error) {
+    console.error("Upload error:", error)
+    alert("Failed to upload image. Please try again.")
+  } finally {
+    setIsUploading(false)
   }
+}
+
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
