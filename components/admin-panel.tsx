@@ -84,14 +84,28 @@ export default function AdminPanel() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
+      console.log("[v0] Starting admin upload:", {
+        fileName: uploadFile.name,
+        fileSize: uploadFile.size,
+        plantType: uploadPlantType,
+        userId: user.id,
+      })
+
       // Upload file to storage
       const fileExt = uploadFile.name.split(".").pop()
       const fileName = `admin_${Date.now()}.${fileExt}`
       const filePath = `admin-uploads/${fileName}`
 
+      console.log("[v0] Uploading to storage path:", filePath)
+
       const { error: uploadError } = await supabase.storage.from("plant-images").upload(filePath, uploadFile)
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error("[v0] Storage upload error:", uploadError)
+        throw uploadError
+      }
+
+      console.log("[v0] Storage upload successful, saving to database")
 
       // Save to database with admin flag
       const { error: dbError } = await supabase.from("uploaded_images").insert({
@@ -106,7 +120,12 @@ export default function AdminPanel() {
         is_verified: true,
       })
 
-      if (dbError) throw dbError
+      if (dbError) {
+        console.error("[v0] Database insert error:", dbError)
+        throw dbError
+      }
+
+      console.log("[v0] Upload completed successfully")
 
       // Reset form
       setUploadFile(null)
@@ -119,8 +138,9 @@ export default function AdminPanel() {
 
       alert("Image uploaded successfully!")
     } catch (error) {
-      console.error("Upload error:", error)
-      alert("Upload failed. Please try again.")
+      console.error("[v0] Upload error details:", error)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+      alert(`Upload failed: ${errorMessage}`)
     } finally {
       setUploading(false)
     }
