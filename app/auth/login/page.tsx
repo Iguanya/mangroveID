@@ -21,22 +21,33 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     const supabase = createClient()
+    console.log("[DEBUG] Supabase client created:", supabase) // log client instance
+
     setIsLoading(true)
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log("[DEBUG] Attempting login with:", { email, password: password ? "***" : "(empty)" })
+
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
+
+      console.log("[DEBUG] Supabase response:", { data, error })
+
       if (error) throw error
+      console.log("[DEBUG] Login success, redirecting to /dashboard")
       router.push("/dashboard")
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      console.error("[ERROR] Login failed:", error)
+      setError(error instanceof Error ? error.message : "An unknown error occurred")
     } finally {
       setIsLoading(false)
+      console.log("[DEBUG] Login process finished")
     }
   }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center p-6">
