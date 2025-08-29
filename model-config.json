@@ -1,0 +1,60 @@
+{
+  "activeModel": "opencv-mangrove-v1",
+  "models": {
+    "opencv-mangrove-v1": {
+      "name": "OpenCV Mangrove Classifier v1.0",
+      "type": "opencv",
+      "version": "1.0.0",
+      "description": "Primary mangrove and coastal plant identification model",
+      "modelPath": "/models/opencv-mangrove-v1.pkl",
+      "confidence_threshold": 0.75,
+      "supported_formats": ["jpg", "jpeg", "png", "webp"],
+      "max_image_size": 2048,
+      "preprocessing": {
+        "resize": [224, 224],
+        "normalize": true,
+        "augmentation": false
+      },
+      "classes": [
+        "Rhizophora mangle",
+        "Avicennia germinans",
+        "Laguncularia racemosa",
+        "Conocarpus erectus",
+        "Spartina alterniflora",
+        "Salicornia virginica"
+      ]
+    },
+    "tensorflow-coastal-v2": {
+      "name": "TensorFlow Coastal Plants v2.0",
+      "type": "tensorflow",
+      "version": "2.0.0",
+      "description": "Advanced coastal plant identification with higher accuracy",
+      "modelPath": "/models/tensorflow-coastal-v2.h5",
+      "confidence_threshold": 0.8,
+      "supported_formats": ["jpg", "jpeg", "png"],
+      "max_image_size": 512,
+      "preprocessing": {
+        "resize": [299, 299],
+        "normalize": true,
+        "augmentation": true
+      },
+      "classes": [
+        "Rhizophora mangle",
+        "Avicennia germinans",
+        "Laguncularia racemosa",
+        "Conocarpus erectus",
+        "Spartina alterniflora",
+        "Salicornia virginica",
+        "Batis maritima",
+        "Sesuvium portulacastrum"
+      ]
+    }
+  },
+  "fallback_model": "opencv-mangrove-v1",
+  "enable_ensemble": false,
+  "logging": {
+    "level": "info",
+    "log_predictions": true,
+    "log_errors": true
+  }
+}
