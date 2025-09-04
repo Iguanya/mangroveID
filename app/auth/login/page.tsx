@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -17,6 +17,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    router.prefetch("/dashboard")
+  }, [router])
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,8 +94,18 @@ export default function LoginPage() {
                   />
                 </div>
                 {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</p>}
-                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={isLoading}>
-                  {isLoading ? "Signing in..." : "Sign In"}
+                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
                 </Button>
               </div>
               <div className="mt-6 text-center text-sm">
