@@ -75,11 +75,15 @@ export default function AdminPanel() {
 
       if (imagesError) throw imagesError
 
-      // Add public URLs
       const imagesWithUrls =
         imagesData?.map((img) => {
-          const { data } = supabase.storage.from("plant-images").getPublicUrl(img.file_url)
-          return { ...img, public_url: data.publicUrl }
+          // Handle both storage bucket URLs and direct URLs
+          let publicUrl = img.file_url
+          if (img.file_url && !img.file_url.startsWith("http")) {
+            const { data } = supabase.storage.from("plant-images").getPublicUrl(img.file_url)
+            publicUrl = data.publicUrl
+          }
+          return { ...img, public_url: publicUrl }
         }) || []
 
       setUsers(usersData || [])
@@ -103,62 +107,62 @@ export default function AdminPanel() {
   }
 
   const handleAdminUpload = async () => {
-  if (!uploadFile || !uploadLabel || !uploadPlantType) {
-    alert("Please fill in all required fields")
-    return
-  }
+    if (!uploadFile || !uploadLabel || !uploadPlantType) {
+      alert("Please fill in all required fields")
+      return
+    }
 
-  setUploading(true)
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) throw new Error("Not authenticated")
+    setUploading(true)
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
 
-    const formData = new FormData()
-    formData.append("file", uploadFile)
-    formData.append("userId", user.id)
-    formData.append("plantType", uploadPlantType)
-    formData.append("description", uploadDescription)
+      const formData = new FormData()
+      formData.append("file", uploadFile)
+      formData.append("userId", user.id)
+      formData.append("plantType", uploadPlantType)
+      formData.append("description", uploadDescription)
 
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    })
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
 
-    if (!res.ok) throw new Error("Upload failed")
+      if (!res.ok) throw new Error("Upload failed")
 
-    const result = await res.json()
-    console.log("Upload success:", result)
+      const result = await res.json()
+      console.log("Upload success:", result)
 
-    // Save metadata in Supabase DB (optional, if still needed)
-    const { error: dbError } = await supabase.from("uploaded_images").insert({
-      user_id: user.id,
-      filename: uploadFile.name,
-      file_url: result.fileUrl, // now points to /uploads/
-      file_size: uploadFile.size,
-      mime_type: uploadFile.type,
-      user_label: uploadPlantType,
-      notes: uploadDescription,
-      is_verified: true,
-    })
+      // Save metadata in Supabase DB (optional, if still needed)
+      const { error: dbError } = await supabase.from("uploaded_images").insert({
+        user_id: user.id,
+        filename: uploadFile.name,
+        file_url: result.fileUrl, // now points to /uploads/
+        file_size: uploadFile.size,
+        mime_type: uploadFile.type,
+        user_label: uploadPlantType,
+        notes: uploadDescription,
+        is_verified: true,
+      })
 
-    if (dbError) throw dbError
+      if (dbError) throw dbError
 
-    setUploadFile(null)
-    setUploadLabel("")
-    setUploadDescription("")
-    setUploadPlantType("")
+      setUploadFile(null)
+      setUploadLabel("")
+      setUploadDescription("")
+      setUploadPlantType("")
 
-    await fetchAdminData()
-    alert("Image uploaded successfully!")
-  } catch (error) {
-    console.error("Upload error details:", error)
-    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
-    alert(`Upload failed: ${errorMessage}`)
-  } finally {
-    setUploading(false)
-  }
+      await fetchAdminData()
+      alert("Image uploaded successfully!")
+    } catch (error) {
+      console.error("Upload error details:", error)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+      alert(`Upload failed: ${errorMessage}`)
+    } finally {
+      setUploading(false)
+    }
   }
 
   if (loading) {
@@ -270,16 +274,16 @@ export default function AdminPanel() {
                   <CardContent>
                     <div className="space-y-4">
                       {allImages.slice(0, 5).map((image: any) => (
-                        <div
-                          key={image.id}
-                          className="flex items-center justify-between p-3 border rounded-lg gap-4"
-                        >
-                          {/* Thumbnail */}
+                        <div key={image.id} className="flex items-center justify-between p-3 border rounded-lg gap-4">
                           <div className="flex-shrink-0">
                             <img
-                              src={image.url || image.file_url} // adjust field name depending on how you store it
+                              src={image.public_url || image.file_url || "/placeholder.svg?height=64&width=64"}
                               alt={image.filename}
                               className="w-16 h-16 object-cover rounded-md border"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.src = "/plant-image.jpg"
+                              }}
                             />
                           </div>
 
@@ -287,19 +291,16 @@ export default function AdminPanel() {
                           <div className="flex-1">
                             <p className="font-medium">{image.filename}</p>
                             <p className="text-sm text-gray-600">
-                              by {image.profiles?.display_name || "Unknown"}
+                              by {image.profiles?.display_name || image.profiles?.email || "Unknown"}
                             </p>
-                            {image.is_admin_upload && (
+                            {image.is_verified && (
                               <Badge variant="outline" className="text-xs mt-1">
-                                Admin Upload
+                                Verified
                               </Badge>
                             )}
                           </div>
 
-                          {/* Plant type */}
-                          <Badge variant="outline">
-                            {image.plant_type || "Unlabeled"}
-                          </Badge>
+                          <Badge variant="outline">{image.user_label || "Unlabeled"}</Badge>
                         </div>
                       ))}
                     </div>
@@ -323,7 +324,7 @@ export default function AdminPanel() {
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-forest-600">
-                        {allImages.filter((img: any) => img.plant_type).length}
+                        {allImages.filter((img: any) => img.user_label).length}
                       </p>
                       <p className="text-sm text-gray-600">Labeled Images</p>
                     </div>

@@ -1,13 +1,16 @@
 import type { ModelConfig, ModelDefinition, PredictionResult, ModelError } from "./types/model"
 import fs from "fs"
 import path from "path"
+import { createClient } from "@supabase/supabase-js"
 
 class ModelService {
   private config: ModelConfig
   private loadedModels: Map<string, any> = new Map()
+  private supabase: any
 
   constructor() {
     this.loadConfig()
+    this.supabase = createClient("https://your-supabase-url.supabase.co", "your-supabase-key")
   }
 
   private loadConfig(): void {
@@ -84,7 +87,7 @@ class ModelService {
       const result: PredictionResult = {
         class: prediction.class,
         confidence: prediction.confidence,
-        species_info: this.getSpeciesInfo(prediction.class),
+        species_info: await this.getSpeciesFromDatabase(prediction.class, this.supabase),
         processing_time: processingTime,
         model_used: this.config.activeModel,
         timestamp: new Date().toISOString(),
@@ -137,32 +140,72 @@ class ModelService {
     return filename.split(".").pop()?.toLowerCase() || "unknown"
   }
 
+  private async getSpeciesFromDatabase(className: string, supabase: any) {
+    const { data: species } = await supabase.from("plant_species").select("*").eq("scientific_name", className).single()
+
+    return species
+  }
+
   private getSpeciesInfo(className: string) {
-    // This would typically come from your plant species database
     const speciesDatabase: Record<string, any> = {
       "Rhizophora mangle": {
         scientific_name: "Rhizophora mangle",
         common_name: "Red Mangrove",
         family: "Rhizophoraceae",
-        habitat: "Coastal wetlands, tidal zones",
+        habitat: "Coastal wetlands, tidal zones, prop root systems in saltwater",
         conservation_status: "Least Concern",
+        description: "Distinctive prop roots and viviparous seedlings",
       },
       "Avicennia germinans": {
         scientific_name: "Avicennia germinans",
         common_name: "Black Mangrove",
         family: "Acanthaceae",
-        habitat: "Salt marshes, coastal areas",
+        habitat: "Salt marshes, coastal areas, pneumatophore root systems",
         conservation_status: "Least Concern",
+        description: "Salt-excreting leaves and pencil-like pneumatophores",
       },
-      // Add more species as needed
+      "Laguncularia racemosa": {
+        scientific_name: "Laguncularia racemosa",
+        common_name: "White Mangrove",
+        family: "Combretaceae",
+        habitat: "Higher elevation coastal areas, behind red and black mangroves",
+        conservation_status: "Least Concern",
+        description: "Salt glands on leaves and button-like flowers",
+      },
+      "Conocarpus erectus": {
+        scientific_name: "Conocarpus erectus",
+        common_name: "Buttonwood",
+        family: "Combretaceae",
+        habitat: "Coastal uplands, mangrove transition zones",
+        conservation_status: "Least Concern",
+        description: "Button-like seed heads and silvery-green leaves",
+      },
+      "Spartina alterniflora": {
+        scientific_name: "Spartina alterniflora",
+        common_name: "Smooth Cordgrass",
+        family: "Poaceae",
+        habitat: "Salt marshes, intertidal zones",
+        conservation_status: "Least Concern",
+        description: "Tall grass with smooth leaf sheaths",
+      },
+      "Salicornia virginica": {
+        scientific_name: "Salicornia virginica",
+        common_name: "Virginia Glasswort",
+        family: "Amaranthaceae",
+        habitat: "Salt marshes, hypersaline environments",
+        conservation_status: "Least Concern",
+        description: "Succulent, jointed stems, highly salt-tolerant",
+      },
     }
 
     return (
       speciesDatabase[className] || {
         scientific_name: className,
-        common_name: "Unknown",
+        common_name: "Unknown Species",
         family: "Unknown",
         habitat: "Coastal environment",
+        conservation_status: "Unknown",
+        description: "Species identification pending verification",
       }
     )
   }

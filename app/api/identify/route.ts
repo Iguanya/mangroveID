@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get("image") as File
+    const imageId = formData.get("imageId") as string // ID of uploaded image
     const source = formData.get("source") as string // 'camera' or 'upload'
 
     if (!file) {
@@ -31,16 +32,45 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (user) {
-      // Save identification result to database
-      const { error: dbError } = await supabase.from("identifications").insert({
+      let speciesId = null
+      const { data: existingSpecies } = await supabase
+        .from("plant_species")
+        .select("id")
+        .eq("scientific_name", result.class)
+        .single()
+
+      if (existingSpecies) {
+        speciesId = existingSpecies.id
+      } else {
+        // Create new species entry
+        const { data: newSpecies, error: speciesError } = await supabase
+          .from("plant_species")
+          .insert({
+            scientific_name: result.class,
+            common_name: result.species_info.common_name,
+            family: result.species_info.family,
+            habitat: result.species_info.habitat,
+            conservation_status: result.species_info.conservation_status || "Unknown",
+            description: `Identified by ${result.model_used}`,
+          })
+          .select("id")
+          .single()
+
+        if (speciesError) {
+          console.error("Failed to create species:", speciesError)
+        } else {
+          speciesId = newSpecies?.id
+        }
+      }
+
+      const { error: dbError } = await supabase.from("plant_identifications").insert({
         user_id: user.id,
-        image_name: file.name,
-        predicted_species: result.class,
+        image_id: imageId,
+        species_id: speciesId,
         confidence_score: result.confidence,
-        model_used: result.model_used,
-        processing_time: result.processing_time,
-        source: source || "upload",
-        species_info: result.species_info,
+        model_version: result.model_used,
+        identification_method: source || "upload",
+        additional_notes: `Processing time: ${result.processing_time}ms`,
       })
 
       if (dbError) {
